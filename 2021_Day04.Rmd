@@ -1,0 +1,63 @@
+---
+title: "2021-Day04"
+author: "Albert Rapp"
+date: "4 12 2021"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+
+###### Read and format input
+numbers_drawn <- read_lines("data/2021_day04.txt", skip_empty_rows = T)[1] %>% 
+  str_split(",") %>% 
+  unlist() %>% 
+  as.numeric()
+
+board_rows <- read_lines("data/2021_day04.txt", skip_empty_rows = T)[-1] %>% 
+  str_remove_all("\\n")
+
+start_idx <- seq(1, length(board_rows), 5)
+end_idx <- seq(5, length(board_rows), 5)
+boards <- map2(start_idx, end_idx, ~board_rows[.x:.y]) %>% 
+  map(~str_extract_all(., pattern = "[:number:]+")) %>% 
+  map(~map(., as.numeric)) %>% 
+  map(unlist) %>% 
+  map(~matrix(data = ., ncol = 5, byrow = T))
+
+###### Helper Functions
+did_board_win <- function(board, numbers) {
+  # delivers TRUE if board wins given numbers
+  (board %in% numbers) %>% 
+    matrix(ncol = 5, byrow = T) %>% 
+    {any((rowSums(.) == 5) | (colSums(.) == 5))}
+}
+find_win_round <- function(board) {
+  seq_along(numbers_drawn) %>% 
+    map_lgl(~did_board_win(board, numbers_drawn[1:.])) %>% 
+    which() %>% 
+    min()
+}
+puzzle_solution <- function(board, round) {
+  unmarked_sum <- 
+    sum((!(board %in% numbers_drawn[1:round])) * board)
+  unmarked_sum * numbers_drawn[round]
+}
+###################################
+# Part 1  
+winning_board_number <- boards %>% 
+  map_int(find_win_round) %>% 
+  which.min()
+winning_board <- boards[[winning_board_number]]
+winning_round <- find_win_round(winning_board)
+puzzle_solution(winning_board, winning_round)
+
+# Part 2
+losing_board_number <- boards %>% 
+  map_int(find_win_round) %>% 
+  which.max()
+losing_board <- boards[[losing_board_number]]
+losing_round <- find_win_round(losing_board)
+puzzle_solution(losing_board, losing_round)
+```
+

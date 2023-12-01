@@ -1,0 +1,26 @@
+---
+title: "2021-Day07"
+author: "Albert Rapp"
+date: "7 12 2021"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+input <- read_lines("data/2021_day07.txt") %>% 
+  str_split(",") %>% 
+  unlist() %>% 
+  as.numeric()
+
+# Task 1
+# median minimizes absolute deviation
+abs(input - round(median(input))) %>% sum
+
+# Task 2
+# Use mean to minimize sum of squared deviations as this will be the major part
+# in the sum of deviations
+m <- floor(mean(input)) 
+# "little Gauss formula"  1 + ... + n = n(n + 1)/2
+((abs((input - m)) * (abs(input - m) + 1)) / 2) %>% sum  
+```
+

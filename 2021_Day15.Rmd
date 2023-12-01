@@ -1,0 +1,108 @@
+---
+title: "2021 Day 15"
+author: "Albert Rapp"
+date: "15 12 2021"
+output: html_document
+---
+
+
+```{r}
+library(tidyverse)
+library(igraph)
+
+######## Helper functions
+mat_to_risk_tibble <- function(mat) {
+  mat %>% 
+    as_tibble(.name_repair = ~paste0("col", 1:(length(mat[1,])))) %>% 
+    mutate(row = seq_along(col1)) %>% 
+    pivot_longer(
+      cols = -row, 
+      names_pattern = "col([0-9]+)",
+      names_to = "col",
+      values_to = "risk"
+    ) %>% 
+    mutate(col = as.numeric(col)) %>% 
+    mutate(vert_id = (row - 1) * max(col) + col)
+}
+
+get_neighbors <- function(vertex_id, max_col, max_row) {
+  left <- if (vertex_id %% max_col == 1)  NA else vertex_id - 1
+  right <- if (vertex_id %% max_col == 0)  NA else vertex_id + 1
+  top <- if (vertex_id <= max_col) NA else vertex_id - max_col
+  bottom <- if (vertex_id > (max_row - 1) * max_col) NA else vertex_id + max_col
+  rbind(c(left, vertex_id), c(right, vertex_id), c(top, vertex_id), c(bottom, vertex_id))
+}
+
+######## Main function
+calculate_shortest_path <- function(mat) {
+  # Convert matrix to tibble and find neighbors for each cell
+  risks <- mat_to_risk_tibble(mat)
+  risks <- risks %>% 
+    mutate(coords = map(vert_id, ~get_neighbors(., max(col), max(row)))) %>% 
+    unnest(coords) %>% 
+    filter(!is.na(coords[, 1]), !is.na(coords[, 2]))
+  # find coordinates for adjacency matrix
+  coords <- risks %>% 
+    select(5) %>% 
+    as.matrix()
+  
+  # Create and fill adjacency matrix
+  adj_mat <- make_lattice(c(max(risks$row), max(risks$col))) %>% 
+    as_adjacency_matrix()
+  adj_mat[coords] <- risks$risk
+  
+  # Create graph and find shortest distance
+  graph <- graph_from_adjacency_matrix(adj_mat, weighted = T, mode = "directed")
+  short_path <- shortest_paths(graph, from = 1, to = max(risks$row) * max(risks$col)) %>% 
+    pluck("vpath", 1)
+  
+  # Summarize risks on shortest path
+  risks %>% 
+    filter(vert_id %in% short_path[-1]) %>% 
+    select(1:4) %>% 
+    unique() %>% 
+    summarise(risk = sum(risk))
+}
+
+########  Part 1 - 0.83 sec elapsed
+input <- read_lines("data/2021_day15.txt") 
+mat <- input %>% 
+  str_split("") %>% 
+  unlist() %>% 
+  as.numeric() %>% 
+  matrix(byrow = T, ncol = str_length(input[1])) 
+mat %>% calculate_shortest_path()
+
+```
+
+
+```{r}
+########  glue matrix helpers
+increase_one <- function(mat, dummy = 1) {
+  ifelse(mat + 1 >= 10, 1, mat + 1)
+}
+
+increase_mat <- function(mat, times) {
+  if (times == 0) {
+    return(mat)
+  } else{ 
+    return(reduce(1:times, increase_one, .init = mat))
+  }
+}
+
+glue_matrix <- function(mat, mode = "row") {
+  bind_fct <- if (mode == "row") rbind else cbind
+  map(0:4, ~increase_mat(mat, .)) %>% 
+    reduce(~bind_fct(.x, .y))
+}
+
+########  Part 2 - 162.11 sec elapsed
+mat_2 <- mat %>% 
+  glue_matrix("row") %>% 
+  glue_matrix("col")
+mat_2 %>% calculate_shortest_path()
+```
+
+
+
+

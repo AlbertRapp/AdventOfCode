@@ -1,0 +1,45 @@
+---
+title: "Untitled"
+author: "Albert Rapp"
+date: "6 12 2021"
+output: html_document
+---
+```{r}
+library(tidyverse)
+input <- read_lines("data/2021_day06.txt") %>% 
+  str_split(",") %>% 
+  unlist() %>% 
+  as.numeric()
+
+# part 1
+simulate_cycle <- function(fish) {
+  born <- sum(fish == 0)
+  new_fish <- fish - 1
+  new_fish <- if_else(new_fish < 0, 6, new_fish)
+  c(new_fish, rep(8, born))
+}
+fish <- input
+for (i in 1:80) {
+  fish <- fish %>% simulate_cycle()
+}
+length(fish)
+
+# part 2
+# brute force modeliing from part 1 does not work here 
+# not enough RAM :(
+simulate_cycle_counts <- function(counts) {
+  born <- counts[1]
+  counts <- lead(counts, default = 0)
+  counts[c(7, 9)] <- counts[c(7, 9)] + born
+  counts
+}
+
+counts <- map_dbl(0:8, ~sum(input == .))
+for (i in 1:256) {
+  counts <- counts %>% simulate_cycle_counts()
+}
+options(scipen=999) # get rid of scientific notation
+sum(counts) 
+```
+
+

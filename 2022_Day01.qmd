@@ -1,0 +1,23 @@
+
+
+```{r}
+library(tidyverse)
+calories_input <- read_lines('data/2022_day01.txt')
+
+total_calories_per_elf <- tibble(
+  calories = parse_number(calories_input)
+) |> 
+  mutate(elf = cumsum(if_else(is.na(calories), 1, 0))) |> 
+  group_by(elf) |> 
+  summarise(calories = sum(calories, na.rm = T))
+  
+## Part 1
+total_calories_per_elf |> slice_max(calories, n = 1)
+
+## Part 2
+total_calories_per_elf |> 
+  slice_max(calories, n = 3) |> 
+  pull(calories) |> 
+  sum()
+```
+

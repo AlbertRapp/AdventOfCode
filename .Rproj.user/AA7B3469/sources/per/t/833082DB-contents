@@ -1,0 +1,85 @@
+---
+title: "2021-Day18"
+author: "Albert Rapp"
+date: "18 12 2021"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+snail_numbers <- read_lines("data/2021_day18.txt")
+snail_numbers %>% 
+  str_match_all("\\[[0-9]+(,)[0-9]+\\]")
+```
+
+
+```{r}
+example <- snail_numbers[2]
+
+list_layer <- 0
+
+dummy <- list(a = list("a_1", "a_2"), b = "b_1")
+
+reduce(c(1,2), pluck, .init = dummy)
+
+snail_numbers %>% 
+  str_match_all("\\[.+\\]")
+
+openings <- snail_numbers[4] %>% 
+  str_split("") %>% 
+  unlist() %>% 
+  str_which("\\[")
+
+closings <- snail_numbers[4] %>% 
+  str_split("") %>% 
+  unlist() %>% 
+  str_which("\\]") %>% 
+  rev() # rev such that closings correspond to correct opening
+
+
+map2(openings, closings, ~str_sub(snail_numbers[4], .x, .y))
+```
+
+```{r}
+ex_split <- example %>% 
+  str_split("") %>% 
+  unlist()
+
+snail_list <- list()
+
+process_letter(ex_split, snail_list)
+
+assign_in(snail_list, c(1, 2), 5)
+```
+
+```{r}
+example <- snail_numbers[2]
+ex_split <- example %>% 
+  str_split("") %>% 
+  unlist()
+my_list <- list(c(list("tmp"), list("tmp")))
+list_level <- 0
+horz_level <- 1
+for (i in seq_along(ex_split)) {
+  if (ex_split[i] == "[") {
+    list_level <- list_level + 1
+    new_pos <- 
+    current_val <- pluck(my_list,  c(rep(1, list_level)))
+    new_list <- list(current_val, list("tmp"))
+    print(new_list)
+    my_list <- assign_in(my_list, c(rep(1, list_level)), new_list)
+  }
+  if (ex_split[i] == "]")  {
+    horz_level <- 1
+    list_level <- list_level - 1
+  }
+  if (ex_split[i] == ",") horz_level <- 2
+  if (!(ex_split[i] %in% c("[", "]", ","))) {
+    #print(c(rep(1, list_level), horz_level))
+    #my_list <- assign_in(my_list, c(rep(1, list_level), horz_level), ex_split[i])
+  }
+}
+
+pluck(my_list, 1, 2)
+```
+

@@ -1,0 +1,75 @@
+---
+title: "2021_day11"
+author: "Albert Rapp"
+date: "11 12 2021"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+# Helper functions
+get_surrounding_coords <- function(row, col) {
+  expand_grid(row = (row - 1):(row + 1), col = (col - 1):(col + 1)) %>% 
+    filter(
+      !(row == !!row & col == !col),
+      between(row, 1, 10),
+      between(col, 1, 10)
+    )
+}
+
+increase_surrounding_cells <- function(mat, row, col) {
+  coords <- get_surrounding_coords(row, col)
+  for (i in seq_along(coords$row)) {
+    mat[coords[[i, 'row']], coords[[i, 'col']]] <- 
+      mat[coords[[i, 'row']], coords[[i, 'col']]] + 1
+  }
+  mat
+}
+
+perform_one_step <- function(mat) {
+  mat <- mat + 1
+  flashes <- 0
+  new_flashes <- sum(mat > 9)
+  while (new_flashes > 0) {
+    flashes <- flashes + new_flashes
+    flash_coords <- which(mat > 9, arr.ind = T)
+    mat[mat > 9] <- NA # avoid double flash
+    mat <- reduce2(
+      flash_coords[, 'row'], 
+      flash_coords[, 'col'], 
+      increase_surrounding_cells,
+      .init = mat
+    )
+    new_flashes <- sum(mat > 9, na.rm = T)
+  }
+  mat[is.na(mat)] <- 0
+  lst(mat, flashes)
+}
+
+# Read data
+input <- read_lines("data/2021_day11.txt") %>% 
+  str_split("") %>% 
+  unlist() %>% 
+  as.numeric() %>% 
+  matrix(nrow = 10, byrow = T)
+
+# Part 1
+steps <- input
+flashes <- 0
+for (i in 1:100) {
+  tmp <- steps %>% perform_one_step()
+  steps <- tmp$mat
+  flashes <- flashes + tmp$flashes
+}
+flashes
+
+# Part 2
+steps <- input
+i <- 0
+while (sum(steps) != 0) {
+  steps <- steps %>% perform_one_step() %>% pluck("mat")
+  i <- i + 1
+}
+i
+```
+

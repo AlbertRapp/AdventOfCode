@@ -1,0 +1,55 @@
+---
+title: "2021-Day13"
+author: "Albert Rapp"
+date: "13 12 2021"
+output: html_document
+---
+
+
+```{r}
+library(tidyverse)
+input <- read_lines("data/2021_day13.txt") 
+
+# Split input into coordinates and instructions
+split_idx <- which(input == "")
+coords <- input[1:(split_idx - 1)] %>% 
+  tibble(coords = .) %>% 
+  separate(col = coords, into = c("x", "y"), convert = T) %>% 
+  mutate(across(.fns = as.numeric))
+
+instructions <- input[(split_idx + 1):length(input)] %>% 
+  str_match("(x|y)=([:number:]+)") %>% 
+  .[, -1] %>% 
+  as_tibble(.name_repair = ~c("axis", "value")) %>% 
+  mutate(value = as.numeric(value))
+
+## Helper function with curly-curly in action
+transform_coords <- function(coords, axis, axis_val) {
+  axis <- sym(axis)
+  coords %>% 
+    mutate(
+      {{axis}} := if_else(
+        {{axis}} - axis_val > 0, 
+        {{axis}} - 2 * ({{axis}} - axis_val),
+        {{axis}}
+      )
+    ) 
+}
+
+# Part 1
+coords %>% 
+  transform_coords(instructions$axis[1], instructions$value[1]) %>% 
+  unique() %>% 
+  nrow()
+
+# Part 2
+reduce2(
+  instructions$axis,
+  instructions$value,
+  transform_coords,
+  .init = coords
+) %>% 
+  ggplot(aes(x, -y)) +
+  geom_tile()
+```
+

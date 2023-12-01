@@ -1,0 +1,63 @@
+---
+title: "2021-Day09"
+author: "Albert Rapp"
+date: "9 12 2021"
+output: html_document
+---
+
+
+```{r}
+library(tidyverse)
+input <- read_lines("data/2021_day09.txt") %>% 
+  str_split("") %>% 
+  unlist() %>% 
+  as.numeric() %>% 
+  matrix(ncol = 100, byrow = T)
+
+# Surround original input with NAs
+padded_input <- matrix(NA, nrow = 102, ncol = 102)
+padded_input[2:101, 2:101] <- input
+# Compute minimal surrounding heights - ignore NAs
+lowest_neighbors <- pmin(
+  rbind(padded_input[-1,],0),  
+  rbind(0,padded_input[-nrow(padded_input),]),
+  cbind(padded_input[,-1],0),
+  cbind(0,padded_input[,-ncol(padded_input)]),
+  na.rm = T
+)
+# Solution - Task 1
+sum((padded_input < lowest_neighbors) * (padded_input + 1), na.rm = T)
+```
+
+```{r}
+library(igraph)
+library(raster)
+adjacency_raster <- raster(input != 9)
+components <- as.matrix(clump(adjacency_raster, directions = 4))
+# For each components find coordinates
+coords <- map(1:max(components, na.rm = T), ~which(components == ., arr.ind = T))
+# Compute clump sizes
+sorted_clump_sizes <- coords %>% map_dbl(nrow) %>% sort(decreasing = T)
+# Solution - Task 2
+prod(sorted_clump_sizes[1:3])
+```
+
+
+```{r}
+# Bonus viz
+library(paletteer) 
+p <- coords %>% 
+  map(as_tibble) %>% 
+  map2(seq_along(coords), ~mutate(.x, component = .y)) %>% 
+  bind_rows() %>% 
+  mutate(component = factor(component)) %>% 
+  ggplot(aes(col, row, col = component)) +
+  geom_point(size = 1.5) +
+  theme_void() +
+  scale_color_paletteer_d("palettesForR::Named", direction =  -1) +
+  theme(
+    legend.position = "none",
+    panel.background = element_rect(fill = "grey15")
+  )
+ggsave("2021_day09.png", plot = p, width = 30, height = 30 * 9 / 16, units = "cm")
+```

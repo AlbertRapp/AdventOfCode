@@ -1,0 +1,50 @@
+
+```{r}
+library(tidyverse)
+input <- tibble(input = read_lines('data/2022_day10.txt')) |> 
+  separate(input, c('cmd', 'val'), sep = ' ', fill = 'right', convert = TRUE) |> 
+  replace_na(list(val = 0))
+
+replace_command <- function(cmd, val) {
+  if (cmd == 'addx') c(0, val) else 0
+}
+
+signals <- input |> 
+  mutate(cycle_change = map2(cmd, val, replace_command)) |> 
+  unnest(cycle_change) |> 
+  mutate(
+    cycle = seq_along(cycle_change),
+    cumsum = 1 + cumsum(cycle_change)
+  ) 
+
+# Part A
+# -1 here because we want strength DURING and not AFTER cycle
+selected_signal_strengths <- signals |> 
+  slice(seq(20, 220, 40) - 1) |> 
+  mutate(signal_strength = cumsum * (cycle + 1))
+sum(selected_signal_strengths$signal_strength)
+
+# Part B
+cumsums <- signals$cumsum
+drawn <- c('#')
+for (i in seq_along(cumsums)[-1]) {
+  if (between((i - 1) %% 40, cumsums[i - 1] - 1, cumsums[i - 1] + 1)) {
+    drawn <- c(drawn, '#')
+  } else {
+    drawn <- c(drawn, '.')
+  }
+}
+
+tibble(
+  i = seq_along(drawn),
+  row = (i - 1) %/% 40,
+  col = ((i - 1) %% 40),
+  drawn = drawn
+) |> 
+  ggplot(aes(col, row, col = drawn)) +
+  geom_point(size = 2) +
+  scale_y_reverse() +
+  theme_void()
+  # EFUGLPAP
+```
+

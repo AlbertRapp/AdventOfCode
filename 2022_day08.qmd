@@ -1,0 +1,93 @@
+
+
+```{r}
+library(tidyverse)
+input <- read_lines('data/2022_day08.txt')
+input_vec <- input  |> 
+  str_split('') |> 
+  unlist() |> 
+  parse_number()
+
+tree_grid <- matrix(
+  input_vec, nrow = length(input), byrow = TRUE
+)
+
+max_row <- nrow(tree_grid)
+max_col <- ncol(tree_grid)
+grid_indices <- expand_grid(
+  row = 1:max_row,
+  col = 1:max_row
+)
+
+is_tree_hidden <- function(row, col) {
+  pos_from_tree_lr <- which(
+    tree_grid[row, ] >= tree_grid[row, col]
+  ) - col
+  left_hidden <- (sum(pos_from_tree_lr < 0) > 0)
+  right_hidden <- (sum(pos_from_tree_lr > 0) > 0)
+  
+  pos_from_tree_ud <- which(
+    tree_grid[, col] >= tree_grid[row, col]
+  ) - row
+  up_hidden <- (sum(pos_from_tree_ud < 0) > 0)
+  down_hidden <- (sum(pos_from_tree_ud > 0) > 0)
+  
+  all(
+    left_hidden, right_hidden, up_hidden, down_hidden
+  )
+}
+
+grid_indices |> 
+  mutate(visible = !map2_lgl(row, col, is_tree_hidden)) |> 
+  pull(visible) |> 
+  sum()
+
+```
+
+
+```{r}
+scenic_score <- function(row, col) {
+  pos_from_tree_lr <- which(
+    tree_grid[row, ] >= tree_grid[row, col]
+  ) - col
+  left_blocked <- pos_from_tree_lr[pos_from_tree_lr < 0]
+  if(length(left_blocked) != 0) {
+    left_trees <- max(left_blocked)
+  } else {
+    left_trees <- col - 1
+  }
+  
+  right_blocked <- pos_from_tree_lr[pos_from_tree_lr > 0]
+  if(length(right_blocked) != 0) {
+    right_trees <- min(right_blocked)
+  } else{
+    right_trees <- max_col - col
+  }
+  
+  pos_from_tree_ud <- which(
+    tree_grid[, col] >= tree_grid[row, col]
+  ) - row
+  up_blocked <- pos_from_tree_ud[pos_from_tree_ud < 0]
+  if (length(up_blocked) != 0) {
+    up_trees <- max(up_blocked)
+  } else {
+    up_trees <- row - 1
+  }
+  
+  down_blocked <- pos_from_tree_ud[pos_from_tree_ud > 0]
+  if(length(down_blocked) != 0) {
+    down_trees <- min(down_blocked)
+  } else{
+    down_trees <- max_row - row
+  }
+  
+  prod( 
+    abs(c(left_trees, right_trees, up_trees, down_trees))
+  )
+}
+
+grid_indices |> 
+  mutate(score = map2_dbl(row, col, scenic_score)) |> 
+  slice_max(score, n = 1)
+```
+

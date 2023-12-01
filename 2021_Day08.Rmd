@@ -1,0 +1,100 @@
+---
+title: "2021-Day08"
+author: "Albert Rapp"
+date: "8 12 2021"
+output: html_document
+---
+```{r}
+# Read input
+library(tidyverse)
+input <- read_lines("data/2021_day08.txt") %>% 
+  as_tibble() %>% 
+  separate(value, c("signal", "digit_output"), sep = " \\| ")
+  # took me ages to realize that I need to escape |  
+
+signal <- input %>% pull(signal)
+digit_output <- input %>% pull(digit_output)
+
+# Part 1
+unique_lengths_to_number <- function(numbers) {
+  case_when(
+    numbers == 2 ~ 1,
+    numbers == 3 ~ 7,
+    numbers == 4 ~ 4,
+    numbers == 7 ~ 8
+  )
+}
+
+identified_numbers <- digit_output %>% 
+  str_extract_all("[a-g]+") %>% 
+  map(str_length) %>% 
+  map(unique_lengths_to_number) %>% 
+  unlist() 
+
+map_dbl(c(1, 4, 7, 8), ~sum(identified_numbers == ., na.rm = T)) %>% sum()
+```
+
+
+```{r}
+# Part 2 
+# Sorting to ensure all signals are ordered lexicograpically
+split_and_sort_signals <- function(signals) {
+  signals %>% 
+    str_split(" ") %>%
+    unlist() %>% 
+    map(~(str_split(., "") %>% unlist() %>% sort() %>% str_c(collapse = ""))) %>% 
+    unlist()
+}
+
+identify_signal <- function(signals) {
+  # First, obvious identification by length
+  signals <- signals %>% split_and_sort_signals()
+  n_signal <- map_dbl(signals, str_length)
+  unique_lengths <- case_when(
+    n_signal == 2 ~ 1,
+    n_signal == 3 ~ 7,
+    n_signal == 4 ~ 4,
+    n_signal == 7 ~ 8
+  )
+  names(signals) <- unique_lengths
+  
+  # Next, find letters that help to identify singals of length 5 and 6
+  # To differentiate between letters in signal I used Greek letters here
+  gamma_phi <- signals["1"]  %>% 
+    str_split("") %>% 
+    unlist()
+  beta_delta <- reduce(c(signals["4"], gamma_phi), str_remove) %>% 
+    str_split("") %>% 
+    unlist()
+  
+  # Use new information for final identification
+  final_identification <- case_when(
+    n_signal == 2 ~ 1,
+    n_signal == 3 ~ 7,
+    n_signal == 4 ~ 4,
+    n_signal == 7 ~ 8,
+    (n_signal == 5) & map_lgl(signals, ~all(str_detect(., beta_delta))) ~ 5,
+    (n_signal == 5) & map_lgl(signals, ~!all(str_detect(., gamma_phi))) ~ 2,
+    n_signal == 5 ~ 3,
+    (n_signal == 6) & map_lgl(signals, ~!all(str_detect(., gamma_phi))) ~ 6,
+    (n_signal == 6) & map_lgl(signals, ~all(str_detect(., beta_delta))) ~ 9,
+    n_signal == 6 ~ 0,
+  )
+  # Make a dictionary with a vector (names -> signals, values -> numbers)
+  names(signals) <- final_identification
+  setNames(names(signals), signals)
+}
+
+decrypt_output <- function(output, dictionary) {
+  output <- output %>% split_and_sort_signals()
+  dictionary[output] %>% 
+    str_c(collapse = "") %>% 
+    as.numeric()
+}
+
+signal %>% 
+  map(identify_signal) %>% 
+  map2_dbl(digit_output, ~decrypt_output(.y, .x)) %>% 
+  sum()
+```
+

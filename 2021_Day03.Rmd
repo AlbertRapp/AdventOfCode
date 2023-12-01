@@ -1,0 +1,99 @@
+---
+title: "2021-Day03"
+author: "Albert Rapp"
+date: "3 12 2021"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+input <- read_lines("data/2021_day03.txt") %>% 
+  tibble(binary = .) %>% 
+  mutate(split = str_split(binary, "")) %>% 
+  unnest_wider(split, names_sep = "_")
+```
+
+# Task 1
+
+```{r}
+####### Helper functions
+rates_from_counts <- function(counts, variable) {
+  var_rank <- if_else(variable == "gamma", 1, 2) 
+  max_min_fct <- ifelse(variable == "gamma", slice_max, slice_min)
+  tie_breaker_fct <- ifelse(variable == "gamma", slice_tail, slice_head)
+  counts %>% 
+    mutate(across(c(position, value), as.numeric)) %>% 
+    group_by(position) %>% 
+    max_min_fct(n, n = 1) %>% 
+    arrange(position, value) %>% 
+    tie_breaker_fct(n = 1) %>% 
+    pull(value) %>% 
+    as.numeric()
+}
+
+binary_to_decimal <- function(binary_vec) {
+  sum(binary_vec * 2^rev(0:(length(binary_vec) - 1)))
+}
+
+####### Solution
+counts <- input  %>% 
+  pivot_longer(cols = -1, names_pattern = "split_(.+)", names_to = "position") %>% 
+  count(position, value)
+
+gamma <- rates_from_counts(counts, "gamma") %>% binary_to_decimal() # 3529
+epsilon <- rates_from_counts(counts, "epsilon") %>% binary_to_decimal() # 566
+gamma * epsilon # 1997414
+```
+
+
+# Task 2
+
+```{r}
+matches_at_position <- function(input, pos, variable) {
+  counts <- input  %>% 
+    pivot_longer(cols = -1, names_pattern = "split_(.+)", names_to = "position") %>% 
+    count(position, value)
+  
+  input %>% 
+    mutate(across(-1, as.numeric)) %>% 
+    pivot_longer(cols = -1, names_pattern = "split_(.+)", names_to = "position") %>% 
+    mutate(
+      position = as.numeric(position),
+      comparison = rep(rates_from_counts(counts, variable), nrow(input))
+    ) %>% 
+    filter(value == comparison, position == pos) 
+}
+
+compute_rating <- function(input, variable) {
+  var <- if_else(variable == "oxygen", "gamma", "epsilon")
+  joined <- input %>% 
+    matches_at_position(1, var) %>% 
+    select(binary)
+  
+  for (i in 2:12) {
+    new_input <- input %>% 
+      filter(binary %in% joined$binary)
+    
+    tmp_i <- new_input %>% 
+      matches_at_position(i, var) %>% 
+      select(binary)
+    joined <- inner_join(joined, tmp_i, by = "binary")
+    
+    if (nrow(joined) == 1) {
+      break
+    }
+  }
+  joined %>% 
+    pull(binary) %>% 
+    str_split("") %>% 
+    unlist() %>% 
+    as.numeric()
+}
+
+oxygen <- compute_rating(input, "oxygen") %>% binary_to_decimal() # oxygen
+scrubber <- compute_rating(input, "scrubber") %>% binary_to_decimal() # 289
+oxygen * scrubber # 1032597
+```
+
+
+

@@ -1,0 +1,94 @@
+
+
+```{r}
+library(tidyverse)
+input <- read_lines('data/2022_day05_stack.txt')
+
+#######  PARSING STACK  ############ 
+    n_stacks <- input[length(input)] |> 
+      str_split(' ') |> 
+      unlist() |> 
+      parse_number() |> 
+      max(na.rm = T)
+    
+    regex <- rep('(\\[[A-Z]\\]|   ){1}', n_stacks) |> 
+      paste0(collapse = ' ')
+    
+    stack <- tibble(input = input) |> 
+      extract(
+        col = input, 
+        into = paste0('C', as.character(1:n_stacks)), 
+        regex = regex
+      ) |> 
+      mutate(across(.fns = ~str_remove_all(., ' '))) |> 
+      slice_head(n = -1) |> 
+      as.list() |> 
+      map(~str_c(., collapse = ''))
+###################
+
+    
+#######  PARSING INSTRUCTIONS  ############ 
+    instr <- tibble(
+      input = read_lines('data/2022_day05.txt')
+    ) |> 
+      extract(
+        col = input,
+        into = c('move', 'from', 'to'),
+        regex = 'move (\\d+) from (\\d+) to (\\d+)',
+        convert = TRUE
+      ) |> 
+      rowwise() |> 
+      mutate(instructions = list(c(move, from, to))) |> 
+      ungroup()
+###################
+
+    
+#######  MOVING BLOCK FUNCTION  ############
+move_blocks <- function(stack, instructions, revert_fct) {
+  move <- instructions[1] 
+  from <- instructions[2]  
+  to <- instructions[3] 
+  
+  if (stack[[from]] != '') {
+    moved_parts <- stack[[from]] |> 
+      str_extract_all('\\[[A-Z]\\]') |> 
+      map(
+        \(x) x[1:min(move, length(x))] |> 
+          revert_fct() |> 
+          str_c(collapse = '')
+        ) |> 
+      unlist()
+    
+    stack[[from]] <- stack[[from]] |> 
+      str_sub(start = move * 3 + 1)
+    stack[[to]] <- str_c(
+      moved_parts, stack[[to]], collapse = ''
+    )
+  }
+  stack
+}
+###################
+    
+    
+## Part a
+reduce(
+  instr$instructions, 
+  move_blocks, 
+  revert_fct = rev, # Change rev to c for Part b
+  .init = stack
+) |> 
+  map(~str_sub(., start = 2, end = 2)) |> 
+  str_c(collapse = '')
+
+
+### Part b
+reduce(
+  instr$instructions, 
+  move_blocks, 
+  revert_fct = c,
+  .init = stack
+) |> 
+  map(~str_sub(., start = 2, end = 2)) |> 
+  str_c(collapse = '')
+```
+

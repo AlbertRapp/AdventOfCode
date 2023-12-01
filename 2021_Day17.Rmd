@@ -1,0 +1,64 @@
+---
+title: "2021-Day17"
+author: "Albert Rapp"
+date: "17 12 2021"
+output: html_document
+---
+```{r}
+library(tidyverse)
+
+target <- read_lines("data/2021_day17.txt") %>% 
+  str_match("x=(-?[:number:]+)..(-?[:number:]+), y=(-?[:number:]+)..(-?[:number:]+)") %>% 
+  magrittr::extract(-1) %>% 
+  as.numeric()
+target_xmin <- target[1]
+target_xmax <- target[2]
+target_ymin <- target[3]
+target_ymax <- target[4]
+
+perform_step <- function(coords, velo){
+  coords <- coords + velo
+  velo <- velo + c((velo[1] < 0) - (velo[1] > 0), -1)
+  list(coords = coords, velo = velo)
+}
+
+in_target_area <- function(coords) {
+  between(coords[1], target_xmin, target_xmax) & 
+    between(coords[2], target_ymin, target_ymax) 
+}
+
+return_max_height <- function(velo, part = 1) {
+  coords <- c(0, 0)
+  coords_list <- list(coords)
+  target_area_reached <- F
+  while (!target_area_reached) {
+    step <- perform_step(coords, velo)
+    coords <- step$coords
+    velo <- step$velo
+    coords_list <- c(coords_list, list(coords))
+    target_area_reached <- in_target_area(coords)
+    target_failed <- (coords[1] > target_xmax) | 
+      (coords[2] < target_ymin) | 
+      (coords[1] < target_xmin & velo[1] <= 0)
+    if (target_failed) break
+  }
+  if ((part == 2)) return(!target_failed)
+  if (target_failed) 0 else coords_list %>% map(2) %>% unlist() %>% max()
+}
+
+
+expand_grid(x = 0:100, y = 0:250)  %>% 
+  mutate(
+    velo = map2(x, y, c),
+    ymax = map_dbl(velo, return_max_height)
+  ) %>% 
+  slice_max(ymax, n = 3)
+
+expand_grid(x = -100:1000, y = -200:500)  %>% 
+  mutate(
+    velo = map2(x, y, c),
+    reached_target = map_lgl(velo, return_max_height, part = 2)
+  ) %>% 
+  filter(reached_target)
+```
+

@@ -1,0 +1,122 @@
+---
+execute: 
+  message: false
+  warning: false
+---
+
+# R Solution
+
+## Part 1
+
+```{r}
+library(tidyverse)
+digits <- read_lines('data/2023_day01.txt') |> 
+  str_remove_all('[a-z]')
+
+first_digits <- str_sub(digits, start = 1, end = 1)
+last_digits <- str_sub(digits, start = -1)
+paste0(first_digits, last_digits) |> 
+  parse_number() |> 
+  sum()
+```
+
+## Part 2
+
+```{r}
+digits <- read_lines('data/2023_day01.txt') |> 
+  # forward-looking regex to find overlapping matches
+  str_match_all('(?=([0-9]|one|two|three|four|five|six|seven|eight|nine))') |> 
+  map(\(x) x[,2]) |> 
+  map( \(x) str_replace_all(x,
+    c(
+      'one' = "1",
+      'two' = "2",
+      'three' = "3",
+      'four'= "4",
+      'five' = "5",
+      'six' = "6",
+      'seven' = "7",
+      'eight' = "8",
+      'nine' = "9"
+    ))
+  ) |> 
+  map_chr(\(x) paste0(x, collapse = ''))
+
+
+first_digits <- str_sub(digits, end = 1)
+last_digits <- str_sub(digits, start = -1)
+paste0(first_digits, last_digits) |> 
+  parse_number() |> 
+  sum()
+```
+
+
+
+
+
+# Python solution
+
+## Part 1
+
+```{python}
+import pandas as pd
+import re
+
+input_file = open('data/2023_day01.txt', 'r')
+lines_series = pd.Series(input_file.readlines())
+
+lines_series_cleaned = (
+  lines_series
+  .apply(lambda x: re.sub(r'[a-z\n]', '', x))
+)
+
+first_digits = (
+  lines_series_cleaned
+  .apply(lambda x: x[0])
+)
+last_digits = (
+  lines_series_cleaned
+  .apply(lambda x: x[-1])
+)
+
+pd.to_numeric(first_digits + last_digits).sum()
+
+```
+
+## Part 2
+
+```{python}
+all_matches = lines_series.str.extractall(
+  '(?=([0-9]|one|two|three|four|five|six|seven|eight|nine))'
+)[0]
+
+replace_dict = {
+    'one': '1',
+    'two': '2',
+    'three': '3',
+    'four': '4',
+    'five': '5',
+    'six': '6',
+    'seven': '7',
+    'eight': '8',
+    'nine': '9'
+}
+
+replaced_numbers_series = (
+  all_matches
+  .groupby(level=0)
+  .apply(
+    lambda x: x.replace(replace_dict, regex=True)
+  )
+  .groupby(level=0)
+)
+
+first_digits = replaced_numbers_series.first()
+last_digits = replaced_numbers_series.last()
+
+pd.to_numeric(first_digits + last_digits).sum()
+
+```
+
+
+

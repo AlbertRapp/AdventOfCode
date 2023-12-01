@@ -1,0 +1,202 @@
+---
+title: "2021-Day16"
+author: "Albert Rapp"
+date: "16 12 2021"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+dict <- c(
+  "0" = "0000",
+  "1" = "0001",
+  "2" = "0010",
+  "3" = "0011",
+  "4" = "0100",
+  "5" = "0101",
+  "6" = "0110",
+  "7" = "0111",
+  "8" = "1000",
+  "9" = "1001",
+  "A" = "1010",
+  "B" = "1011",
+  "C" = "1100",
+  "D" = "1101",
+  "E" = "1110",
+  "F" = "1111"
+)
+
+binary_to_decimal <- function(str) {
+  str %>% 
+    str_split("") %>% 
+    unlist() %>% 
+    as.numeric() %>% 
+    magrittr::multiply_by(2^((str_length(str) - 1):0)) %>% 
+    sum()
+}
+
+split_in_chunks <- function(str, chunk_length, keep_incomplete) {
+  n_complete_chunks <- str_length(str) %/% chunk_length
+  str <- str %>% 
+    str_sub(
+      seq(1, n_complete_chunks * chunk_length + 1, chunk_length), 
+      seq(chunk_length, (n_complete_chunks + 1) * chunk_length, chunk_length)
+    )
+  
+  if (keep_incomplete & length(str) == n_complete_chunks + 1) {
+    str[n_complete_chunks] <- 
+      str_c(str[n_complete_chunks], str[n_complete_chunks + 1], collapse = "")
+  }
+  str[1:n_complete_chunks]
+}
+
+binary_input <- read_lines("data/2021_day16.txt") %>% 
+  str_replace_all(dict)
+
+evaluate_literal_string <- function(remainder) {
+  # remainder does NOT contain version and packet type
+  remainder_split <- remainder %>% 
+    split_in_chunks(chunk_length = 5, keep_incomplete = F)
+  
+  remainder_split %>% 
+    str_sub(2, -1) %>% 
+    str_c(collapse = "") %>% 
+    binary_to_decimal()
+}
+
+get_sub_packets <- function(remainder, length_type) {
+  
+  if (length_type == "0") {
+    L <- str_sub(remainder, 2, 16) %>% binary_to_decimal()
+    remainder <- str_sub(remainder, 17, 17 + L - 1)
+    remainder %>% str_extract_all(either_regex) %>% unlist()
+  } else if (length_type == "1") {
+    L <- str_sub(remainder, 2, 12) %>% binary_to_decimal()
+    remainder <- str_sub(remainder, 13, - 1) 
+    remainder %>% 
+      str_extract_all(either_regex) %>% 
+      unlist() %>% 
+      magrittr::extract(1:L)
+  }
+  
+}
+
+literal_regex <- "[01]{3}(100)(1[01]{4})?(0[01]{4})"
+operator_regex <- "[01]{3}0[01]{2}[01]+"
+either_regex <- glue::glue("({literal_regex})|({operator_regex})")
+
+evaluate_packet <- function(binary_input, prev_V = NULL) {
+  # print(binary_input %>% str_length())
+  # if (str_length(binary_input) %% 4 != 0) {
+  #   fill_zeros <- str_c(rep(0, 4 - str_length(binary_input) %% 4), collapse = "")
+  #   binary_input <- str_c(binary_input, fill_zeros)
+  # }
+  # print(binary_input %>% str_length())
+  V <- str_sub(binary_input, 1, 3) %>% binary_to_decimal()
+  prev_V <- if (is.null(prev_V)) V else prev_V + V
+  packet_type <- str_sub(binary_input, 4, 6) %>% binary_to_decimal()
+  remainder <- str_sub(binary_input, 7, -1)
+  
+  if (packet_type == 4) {
+    decimal <- remainder %>% 
+      evaluate_literal_string() 
+    list(V = V, decimal = decimal, prev = prev_V)
+  } else {
+    length_type <- str_sub(remainder, 1, 1) 
+    get_sub_packets(remainder, length_type) %>% 
+      map(evaluate_packet, prev_V) %>% 
+      flatten()
+  }
+}
+
+
+
+evaluate_packet(binary_input)
+
+```
+
+
+```{r}
+classify_string <- function(binary_input) {
+  
+  type <- if (str_sub(binary_input, 4, 6) == "100") {
+    "l"
+  } else {
+    "o"
+  }
+  c(V = V, type = type)
+}
+
+evaluate_literal_string <- function(remainder) {
+  end_signal <- F
+  i <- 0
+  while (!end_signal) {
+    
+  }
+}
+
+remainder_literal_regex <- "(1[01]{4})?(0[01]{4}){1}0?"
+binary_input %>% 
+  str_sub(7, -1) %>% 
+  str_match_all(remainder_literal_regex)
+
+
+classify_string(binary_input)["type"] == "o"
+```
+
+```{r}
+get_version <- function(remainder) {
+  V <- str_sub(remainder, 1, 3) %>% binary_to_decimal() 
+  c(V = V, remainder = str_sub(binary_input, 4, -1))
+}
+
+get_type <- function(remainder) {
+  type <- if (str_sub(remainder, 1, 3) == "100") {
+    "l"
+  } else {
+    "o"
+  }
+  c(type = type, remainder = str_sub(binary_input, 4, -1))
+}
+
+get_next_block <- function(remainder, type) {
+  if (type == "l") {
+    block <- str_sub(remainder, 2, 5)
+    is_end_of_sub <- (str_sub(remainder, 1, 1) == "0")
+    remainder <- str_sub(remainder, 6, -1)
+  }
+  c(block = block, remainder = remainder, is_end_of_sub = is_end_of_sub)
+}
+
+evaluate_literal <- function(remainder) {
+  is_end_of_sub <- F
+  blocks <- character()
+  while(!is_end_of_sub) {
+    tmp <- get_next_block(remainder, "l")
+    remainder <- tmp["remainder"]
+    blocks <- c(blocks)
+  }
+}
+
+
+evaluate_packet <- function(binary_input) {
+  tmp <- binary_input %>% 
+    get_version()
+  V <- tmp["V"]
+  tmp <- tmp["remainder"] %>% 
+    get_type()
+  type <- tmp["type"]
+  
+  
+}
+
+binary_input %>% 
+  get_version() %>% 
+  .["remainder"] %>% 
+  get_type() %>% 
+  .["remainder"] %>% 
+  get_next_block("l")
+
+```
+
+

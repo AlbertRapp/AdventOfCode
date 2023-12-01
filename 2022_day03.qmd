@@ -1,0 +1,55 @@
+
+
+```{r}
+library(tidyverse)
+input <- read_lines('data/2022_day03.txt')
+
+#### HELPERS
+
+alphabet <- c(letters, str_to_upper(letters)) 
+
+str_split_half <- function(string) {
+  n <- str_length(string)
+  c(
+    C1 = str_sub(string, end = n / 2), 
+    C2 = str_sub(string, start = n / 2 + 1)
+  )
+}
+
+find_common_item <- function(C1, C2) {
+  letters_C1 <- str_split(C1, '') |> map(unique) 
+  letters_C2 <- str_split(C2, '') |> map(unique) 
+  
+  map2(letters_C1, letters_C2, ~(.x %in% .y)) |> 
+    map2_chr(letters_C1, ~.y[.x])
+}
+
+####
+
+rucksacks <- tibble(input = input) |> 
+  mutate(compartments = map(input, str_split_half)) |> 
+  unnest_wider(col = compartments)
+
+scores <- rucksacks |> 
+  mutate(
+    common_item = map2_chr(C1, C2, find_common_item),
+    score = match(common_item, alphabet)
+  )
+
+sum(scores$score)
+
+```
+
+```{r}
+badge_scores <- rucksacks |> 
+  mutate(
+    group = rep(1:(nrow(rucksacks) / 3), each = 3),
+    count_letters = map(input, ~str_count(., alphabet) > 0)
+  ) |> 
+  group_by(group) |> 
+  summarise(badge = alphabet[pmap_lgl(count_letters, all)]) |> 
+  mutate(score = match(badge, alphabet)) 
+
+sum(badge_scores$score)
+```
+

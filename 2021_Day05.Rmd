@@ -1,0 +1,41 @@
+---
+title: "2021-Day05"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r}
+####### Read Input
+library(tidyverse)
+line_coords <- read_lines("data/2021_day05.txt") %>% 
+  as_tibble() %>% 
+  extract(
+    col = value, 
+    into = c("x1", "y1", "x2", "y2"),
+    regex = "([[:digit:]]+)+,([[:digit:]]+) -> ([[:digit:]]+),([[:digit:]]+)"
+  )
+
+####### Helper functions
+generate_lines <- function(x1, x2, y1, y2) {
+  map2_dfr(x1:x2, y1:y2, ~c(x = .x, y = .y) )
+}
+count_dangerous <- function(line_coords) {
+  line_coords %>% 
+    pmap(generate_lines)  %>% 
+    bind_rows() %>% 
+    count(x, y) %>% 
+    filter(n > 1) %>% 
+    nrow()
+}
+
+####### Puzzle Solutions
+## Task 1
+line_coords %>% 
+  filter((x1 == x2) | (y1 == y2)) %>% 
+  count_dangerous()
+
+## Task 2
+line_coords %>% count_dangerous()
+```

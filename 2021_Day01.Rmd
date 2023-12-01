@@ -1,0 +1,28 @@
+---
+title: "2021-Day1"
+author: "Albert Rapp"
+date: "1 12 2021"
+output: html_document
+---
+
+# Task 1
+```{r}
+library(tidyverse)
+
+input <- read_lines("data/2021_day01.txt") %>% as.numeric()
+sum(input - lag(input) > 0, na.rm = T)
+```
+
+
+# Task 2
+```{r}
+triple_sums <- input %>% 
+  tibble(m = .) %>% 
+  mutate(lead1 = lead(m), lead2 = lead(m, 2)) %>% 
+  rowwise() %>% 
+  mutate(sum = m + lead1 + lead2) %>%
+  pull(sum)
+
+sum(triple_sums - lag(triple_sums) > 0, na.rm = T)
+```
+

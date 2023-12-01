@@ -1,0 +1,55 @@
+---
+title: "2021-Day14"
+author: "Albert Rapp"
+date: "14 12 2021"
+output: html_document
+---
+
+
+```{r}
+library(tidyverse)
+input <- read_lines("data/2021_day14.txt")
+polymer <- input[1]
+rules <- input[-(1:2)] %>% 
+  tibble(rule = .) %>% 
+  separate(col = "rule", into = c("pair", "insertion"))
+```
+
+```{r}
+insert_in_middle <- function(pair, rules) {
+  insertion <- rules %>% 
+    filter(pair == !!pair) %>% 
+    pull(insertion)
+  
+  str_c(
+    str_sub(pair, 1, 1),
+    insertion,
+    str_sub(pair, 2, 2)
+  )
+}
+
+append_chain <- function(chain, triplet) {
+  str_c(str_sub(chain, 1, -2), triplet)
+}
+
+perform_step <- function(polymer, dummy = 1) {
+  map(1:(str_length(polymer) - 1), ~str_sub(polymer, ., . + 1)) %>% 
+    map(~insert_in_middle(., rules)) %>% 
+    reduce(append_chain)
+}
+
+# Part 1
+tictoc::tic() # 6 sec
+polymer_10_steps <- reduce(1:10, perform_step, .init = polymer)
+counts10 <- polymer_10_steps %>% str_split("") %>% unlist() %>% table()
+max(counts10) - min(counts10) 
+tictoc::toc()
+
+# Part 2
+tictoc::tic()
+polymer_40_steps <- reduce(1:40, perform_step, .init = polymer)
+counts40 <- polymer_40_steps %>% str_split("") %>% unlist() %>% table()
+max(counts40) - min(counts40) 
+tictoc::toc()
+```
+

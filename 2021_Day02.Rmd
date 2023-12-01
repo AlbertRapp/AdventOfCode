@@ -1,0 +1,43 @@
+---
+title: "2021-Day2"
+author: "Albert Rapp"
+date: "2 12 2021"
+output: html_document
+---
+
+# Task 1
+```{r}
+library(tidyverse)
+input <- read_lines("data/2021_day02.txt") %>% 
+  tibble(command = .) %>% 
+  separate(command, into = c("command", "value")) %>% 
+  mutate(value = as.numeric(value))
+
+input %>% 
+  mutate(
+    affected_var = if_else(str_detect(command, "forward"), "h", "d"),
+    sgn = if_else(command == "up", -1, 1),
+    value = sgn * value
+  ) %>% 
+  group_by(affected_var) %>% 
+  summarise(sum = sum(value)) %>% 
+  pull(sum) %>% 
+  prod()
+```
+
+# Task 2
+
+```{r}
+evaluated_input <- input %>% 
+  mutate(
+    current_aim = cumsum(
+      (command != "forward") * (if_else(command == "up", -1, 1)) * value
+    ),
+    h = cumsum((command == "forward") * value),
+    d = cumsum((command == "forward") * current_aim * value)
+  ) %>% 
+  slice_tail(n = 1)
+
+evaluated_input[[1, 'h']] * evaluated_input[[1, 'd']]
+```
+

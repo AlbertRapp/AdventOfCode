@@ -1,0 +1,80 @@
+---
+title: "2021-Day12"
+author: "Albert Rapp"
+date: "12 12 2021"
+output: html_document
+---
+```{r}
+library(tidyverse)
+library(igraph)
+############### Helper functions
+is_valid_neighbor <- function(path, neighbor, part = "a") {
+  if (part == "a") {
+    !((neighbor %in% path & (neighbor == tolower(neighbor))))
+  } else {
+    counts <- table(c(path, neighbor))
+    small_vertices <- counts[names(counts) == tolower(names(counts))]
+    n_vertices_small <- names(small_vertices) %>% 
+      n_distinct()
+    !(
+      any(small_vertices > 2) | 
+        counts["start"] > 1 | 
+        (sum(small_vertices) > n_vertices_small + 1)
+      )
+  }
+}
+
+find_neighbors <- function(graph, path, part = "a") {
+  current_position <- path[length(path)]
+  if (current_position == "end") return(NULL) 
+  possible_neighbors <- factor(neighbors(graph, current_position)) %>% names()
+  valid_neighbors <- map_lgl(possible_neighbors, ~is_valid_neighbor(path, ., part))
+  possible_neighbors <- possible_neighbors[valid_neighbors]
+  possible_neighbors
+}
+
+return_next_valid_paths <- function(graph, path, part = "a") {
+  is_end <- (path[length(path)] == "end")
+  if (is_end) return(path)
+  valid_neighbors <- find_neighbors(graph, path, part)
+  if (length(valid_neighbors) == 0) return(NULL) 
+  map(valid_neighbors, ~c(path, .))
+}
+
+flatten_my_list <- function(l) {
+  singles_lgl <- l %>% 
+    map(lengths) %>% 
+    map_lgl(~all(. == 1)) 
+  
+  c(l[singles_lgl & map_lgl(l, ~!is.null(.))], flatten(l[!singles_lgl]))
+}
+##############################
+
+############### Create Graph
+cave_graph <- read_lines("data/2021_day12.txt") %>% 
+  str_split("-") %>% 
+  unlist() %>% 
+  matrix(ncol = 2, byrow = T) %>% 
+  graph_from_edgelist(directed = F) 
+
+############### Part 1 - 10.49 sec
+paths <- c("start")
+all_end <- F
+while (!all_end) {
+  paths <- map(paths, ~return_next_valid_paths(cave_graph, .)) %>% 
+    flatten_my_list()
+  all_end <- paths %>% map_lgl(~.[length(.)] == "end")  %>% all()
+}
+length(paths)
+
+############### Part 2 - 726.96 sec
+paths <- c("start")
+all_end <- F
+while (!all_end) {
+  paths <- map(paths, ~return_next_valid_paths(cave_graph, ., part = "b")) %>% 
+    flatten_my_list()
+  all_end <- paths %>% map_lgl(~.[length(.)] == "end")  %>% all()
+}
+length(paths)
+```
+

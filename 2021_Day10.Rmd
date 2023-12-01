@@ -1,0 +1,88 @@
+---
+title: "2021_Day10"
+author: "Albert Rapp"
+date: "10 12 2021"
+output: html_document
+---
+```{r}
+##### Helper functions
+library(tidyverse)
+append_stack <- function(stack_openings_list, new_char) {
+  stack <- stack_openings_list$stack
+  openings <- stack_openings_list$openings
+  
+  openings_regex <- "[\\[\\{\\(\\<]"
+  is_new_opening <- any(str_detect(new_char, openings_regex))
+  
+  if (is_new_opening) {
+    stack <- c(stack, new_char)
+    openings <- c(openings, new_char)
+    return(lst(stack, openings))
+  } else {
+    latest_opening <- openings[length(openings)]
+
+    expected_closing <- case_when(
+      latest_opening == "(" ~ ")",
+      latest_opening == "{" ~ "}",
+      latest_opening == "<" ~ ">",
+      latest_opening == "[" ~ "]",
+    )
+    if (new_char == expected_closing) {
+      openings <- openings[-length(openings)]
+      stack <- c(stack, new_char)
+      return(lst(stack, openings))
+    } else {
+      stop(
+        paste("Expected", expected_closing, "but found", new_char, "instead")
+      )
+    }
+  }
+}
+
+test_stack <- function(stack) {
+  empty_stack_openings <- list(stack = character(0), openings = character(0))
+  stack <- stack %>% str_split("") %>% unlist()
+  reduce(stack, append_stack, .init = empty_stack_openings)
+}
+##### End Helpers
+
+input <- read_lines("data/2021_day10.txt")
+# Use safely() to catch errors and then extract error messages from resulting list
+tests <- map(input, safely(test_stack))
+errors <- map(tests, ~pluck(., "error", "message")) %>% unlist()
+
+# Extract "found > } ] )" from errors and count occurences of "> } ] )"
+closings_regex <- "[\\]\\}\\)\\>]"
+counts <- errors %>% 
+  str_extract(paste("found", closings_regex)) %>% 
+  str_remove("found ") %>% 
+  table()
+
+# Solution part 1
+sum(counts[c("]", ")", "}", ">")] * c(57, 3, 1197, 25137))
+```
+
+```{r}
+# Extract stack of unfinished openings from previous calculation and revert order
+closing_sequences <- tests %>%  
+  map(~c(pluck(., "result", "openings"))) %>% 
+  map(rev) 
+# Get rid of NULL elements
+closing_sequences <- closing_sequences[map_lgl(closing_sequences, ~!is.null(.))]
+
+# Helper function
+calculate_score <- function(current_score, new_char) {
+  current_score * 5 + case_when(
+    # closing sequences contain the openings
+    new_char == "(" ~ 1,
+    new_char == "[" ~ 2,
+    new_char == "{" ~ 3,
+    new_char == "<" ~ 4
+  )
+}
+
+# Part 2
+map_dbl(closing_sequences, ~reduce(., calculate_score, .init = 0)) %>% 
+  median()
+```
+

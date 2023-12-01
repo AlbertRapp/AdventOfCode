@@ -1,0 +1,95 @@
+
+```{r}
+library(tidyverse)
+input <- read_lines('data/2022_day07.txt')
+
+### GET NON-RECURSIVE SIZES OF DIRECTORYIES BY TRACKING CD CALLS
+files <- input |> str_subset('\\d')
+files_indices <- map_dbl(files, ~which(. == input))
+
+cd_calls <- input |> str_subset('cd') |> str_remove('\\$ cd ')
+cd_calls_indices <- which(str_detect(input, 'cd'))
+
+convert_cd_chain_to_path <- function(cds) {
+  path <- c()
+  for (i in seq_along(cds)) {
+    if (cds[i] != '..') {
+      path <- c(path, cds[i])
+    } else {
+      path <- path[-length(path)]
+    }
+  }
+  str_c(path, collapse = '|')
+}
+
+path_sizes_non_recursive <- tibble(files, files_indices) |> 
+  mutate(
+    size = parse_number(files),
+    cd_chain = map(files_indices, ~cd_calls[.x >= cd_calls_indices]),
+    path = map_chr(cd_chain, convert_cd_chain_to_path)
+  ) |> 
+  group_by(path) |> 
+  summarise(sum = sum(size))
+##########################################
+
+
+#### SPLIT PATHS INTO NESTING LEVELS
+max_path <- path_sizes_non_recursive$path |> str_length() |> max()
+deepest_nesting <- path_sizes_non_recursive$path[
+    str_length(path_sizes_non_recursive$path) == max_path
+  ] |> 
+  str_count('\\|')
+
+paths_split <- path_sizes_non_recursive |> 
+  mutate(
+    length = str_length(path),
+    path = map2_chr(
+      path, max_path - length, 
+      ~str_c(c(..1, rep('| ', ..2 / 2)), collapse = '')
+    )
+  ) |> 
+  separate(col = path, into = paste0('L', 1:(deepest_nesting + 1)), sep = '\\|')
+##########################################
+
+
+#### COMPUTE GROUPED SUMS FOR ALL LEVELS OF NESTING
+l <- list()
+for (k in 1:(deepest_nesting + 1)) {
+  l[[k]] <- paths_split |> 
+    filter(if_all(1:k, ~(. != ' '))) |> 
+    group_by(across(paste0('L', 1:k))) |> 
+    summarise(sum = sum(sum), .groups = 'drop') 
+}
+##########################################
+
+#### RECONSTRUCT PATHS FROM SPLIT PATHS AND SOLVE RIDDLE
+tib <- bind_rows(l) |> 
+  mutate(across(-sum, ~if_else(is.na(.), '', .)))
+
+paths <- tib |> 
+  select(-sum) |> 
+  pmap(c) |> 
+  map_chr(paste0, collapse = '|')
+
+tibble(paths = paths, size = tib$sum) |> 
+  filter(size <= 100000) |> 
+  pull(size) |> 
+  sum()
+##########################################
+```
+
+
+```{r}
+total_space <- 70000000
+total_size_used <- tibble(paths = paths, size = tib$sum) |> 
+  slice_max(size) |> 
+  pull(size) 
+total_size_used
+
+total_size_unused <- total_space - total_size_used
+
+tibble(paths = paths, size = tib$sum) |> 
+  filter(size > 30000000 - total_size_unused) |> 
+  slice_min(size)
+```
+
