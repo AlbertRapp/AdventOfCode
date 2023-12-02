@@ -1,0 +1,190 @@
+---
+execute: 
+  message: false
+  warning: false
+---
+
+# R Solution
+
+## Part 1
+
+```{r}
+library(tidyverse)
+split_inputs <- read_lines('data/2023_day02.txt') |> 
+  str_remove_all('Game \\d+: ') |> 
+  str_split('; ')
+
+parsed_data <- tibble(
+  game = seq_along(split_inputs),
+  draws = split_inputs
+) |> 
+  unnest(cols = draws) |> 
+  mutate(draw_number = seq_along(draws), .by = game, .before = 2) |> 
+  separate_longer_delim(cols = draws, delim = ', ') |> 
+  mutate(
+    color = str_remove_all(draws, '\\d+ '),
+    draws = parse_number(draws)
+  ) |> 
+  pivot_wider(
+    id_cols = c(game, draw_number),
+    values_from = draws,
+    names_from = color,
+    values_fill = 0
+  )
+  
+
+max_red <- 12
+max_green <- 13
+max_blue <- 14
+
+counts_draws_per_game <- count(parsed_data, game, name = 'total_draws')
+
+allowed_draws <- parsed_data |> 
+  filter(
+    blue <= max_blue,
+    green <= max_green,
+    red <= max_red
+  ) |> 
+  count(game, name = 'allowed_draws')
+
+
+counts_draws_per_game |> 
+  left_join(allowed_draws, by = join_by(game)) |> 
+  filter(total_draws == allowed_draws) |> 
+  pull(game) |> 
+  sum()
+
+```
+
+
+## Part 2
+
+
+```{r}
+parsed_data |> 
+  summarise(
+    across(
+      .cols = c(blue, green, red),
+      .fns = max,
+      .names = 'req_{.col}'
+    ),
+    .by = game
+  ) |> 
+  mutate(
+    power = req_blue * req_red * req_green
+  ) |> 
+  pull(power) |> 
+  sum()
+```
+
+
+# Python Solution
+
+## Part 1
+
+```{python}
+import pandas as pd
+import re
+
+input_file = open('data/2023_day02.txt', 'r')
+lines_series = pd.Series(input_file.readlines())
+
+split_inputs = (
+  lines_series
+  .apply(
+    lambda x: re.sub(
+      pattern = r'Game \d+: ', 
+      repl = '', 
+      string = x
+    )
+  )
+  .apply(
+    lambda x: re.split(pattern = '; ', string = x)
+  )
+)
+
+df = (
+  pd.DataFrame({
+    'game': range(1, len(split_inputs) + 1),
+    'draws': split_inputs
+  })
+  .explode('draws')
+)
+
+df = (
+  df
+  .assign(
+    draws = df['draws'].apply(
+      lambda x: re.sub(pattern = '\n', repl = '', string = x)
+    )
+  )
+)
+
+df = (
+  df
+  .groupby('game')
+  .apply(
+    lambda group: group.assign(draw_number = range(1, len(group) + 1))
+  )
+)[['game', 'draw_number', 'draws']]
+
+df = (
+  df
+  .assign(draws = df['draws'].str.split(', '))
+  .explode('draws')
+)
+
+df = df.assign(
+    color = df['draws'].apply(lambda x: re.sub(r'\d+ ', '', x)),
+    draws = pd.to_numeric(
+      df['draws'].str.extract(r'(\d+)', expand = False)
+    )
+  )
+
+
+parsed_data = (
+  df
+  .pivot(
+    index = ['game', 'draw_number'], 
+    values = 'draws', 
+    columns = 'color'
+  )
+  .fillna(0)
+  .reset_index()
+)
+
+max_red = 12
+max_green = 13
+max_blue = 14
+
+counts_draws_per_game = parsed_data['game'].value_counts()
+
+allowed_draws = (
+  parsed_data
+  .query('blue <= @max_blue and green <= @max_green and red <= @max_red')
+  ['game']
+  .value_counts()
+)
+
+(
+  pd.concat(
+    [counts_draws_per_game, allowed_draws], 
+    keys = ['count_draws', 'count_allowed'], 
+    axis = 1
+  )
+  .reset_index()
+  .query('count_draws == count_allowed')
+  ['game']
+  .sum()
+)
+```
+
+
+## Part 2
+
+```{python}
+max_vals = parsed_data.groupby('game').max()
+
+(max_vals['blue'] * max_vals['green'] * max_vals['red']).sum()
+```
+
