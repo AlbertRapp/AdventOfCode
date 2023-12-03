@@ -1,0 +1,172 @@
+---
+execute: 
+  message: false
+  warning: false
+---
+
+# R Solution
+
+## Part 1
+
+```{r}
+library(tidyverse)
+library(raster)
+
+input_rows <- read_lines('data/2023_day03.txt') |> 
+  str_split('') 
+
+engine_matrix <- input_rows |> 
+  unlist() |> 
+  matrix(nrow = length(input_rows), byrow = TRUE)
+
+components_matrix <- (engine_matrix != ".") |> 
+  raster() |> 
+  clump(directions = 8) |> 
+  as.matrix()
+
+n_components <- max(components_matrix, na.rm = TRUE)
+
+component_coordinates <-  map(
+  1:n_components, 
+  \(x) which(components_matrix == x, arr.ind = TRUE)
+) 
+
+
+list_of_components <- map(
+  1:n_components, 
+  \(x) engine_matrix[component_coordinates[[x]]]
+) 
+
+engine_component_indicators <- list_of_components |> 
+  map(\(x) str_remove_all(x, '\\d')) |> 
+  map(\(x) x[x != ""]) |> 
+  map(\(x) length(x) != 0) |> 
+  unlist()
+
+allowed_component_nmbrs <- (1:n_components)[engine_component_indicators] 
+
+get_number_from_component <- function(component_number) {
+  isolated_numbers_matrix <- matrix(
+    components_matrix == component_number, 
+    nrow = length(input_rows)
+  ) & (str_detect(engine_matrix, '\\d'))
+  
+  number_clumps <- isolated_numbers_matrix  |> 
+    raster() |> 
+    clump(directions = 8) |> 
+    as.matrix()
+  
+  n_numbers <- max(number_clumps, na.rm = TRUE)
+
+  number_coordinates <-  map(
+    1:n_numbers, 
+    \(x) which(number_clumps == x, arr.ind = TRUE)
+  ) 
+  
+  map(
+    1:n_numbers, 
+    \(x) engine_matrix[number_coordinates[[x]]]
+  ) |> 
+    map(\(x) paste0(x, collapse = '')) |> 
+    unlist() |> 
+    parse_number()
+}
+
+map(allowed_component_nmbrs, get_number_from_component) |> 
+  unlist() |> 
+  sum()
+```
+
+
+## Part 2
+
+```{r}
+gear_component_nmbrs <- components_matrix[str_detect(engine_matrix, '\\*')]
+
+map(gear_component_nmbrs, get_number_from_component) |> 
+  map_dbl(\(x) (length(x) == 2) * prod(x)) |> 
+  sum()
+```
+
+
+# Python Solution
+
+## Part 1
+
+
+```{python}
+import pandas as pd
+import numpy as np
+import re
+
+input_file = open('data/2023_day03.txt')
+
+input_list = [line.strip() for line in input_file.readlines()]
+input_rows = [list(item) for item in input_list]
+
+engine_matrix = np.array(input_rows)
+
+from scipy.ndimage import label
+
+search_structure = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+matrix_numeric = np.where(engine_matrix != '.', 1, 0).astype(int)
+labels, num_components = label(matrix_numeric, search_structure)
+
+def find_number(group):
+    cumsum_symbol = np.cumsum(group['is_symbol'])
+    row_switches =  (group['row'] - min(group['row'])) 
+    col_skips = np.cumsum((group['col'] - group['col'].shift(1)) == 2)
+    return cumsum_symbol + row_switches + col_skips
+
+grid = pd.DataFrame({
+    'row': 1 + np.where(labels != 0)[0],
+    'col': 1 + np.where(labels != 0)[1],
+    'component_label': labels[np.where(labels != 0)],
+    'values': engine_matrix[np.where(labels != 0)]
+}).assign(
+    is_symbol = lambda df: df["values"].apply(lambda x: not x.isnumeric()),
+    has_symbol = lambda x: 
+        x.groupby('component_label').transform('max')['is_symbol'],
+    group_number = lambda x:
+        1 + x.groupby(['component_label'], group_keys=False).apply(find_number)
+)
+
+def join_numbers(series):
+    return pd.to_numeric(''.join(series))
+
+(
+    grid
+    .query('has_symbol and not is_symbol')
+    .groupby(['component_label', 'group_number'])
+    ['values']
+    .agg(join_numbers)
+    .sum()
+)
+```
+
+
+
+
+## Part 2
+
+
+```{python}
+
+gear_components = grid.query('values == "*"')['component_label']
+gear_row_condition = grid['component_label'].isin(gear_components)
+
+
+(
+    grid[gear_row_condition]
+    .query('not is_symbol')
+    .groupby(['component_label', 'group_number'])
+    ['values']
+    .agg(join_numbers)
+    .groupby('component_label')
+    .apply(lambda x: x.prod() * (x.nunique() == 2))
+    .sum()
+)
+```
+
+
+
