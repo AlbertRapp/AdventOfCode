@@ -1,0 +1,156 @@
+---
+execute: 
+  message: false
+  warning: false
+---
+
+# R Solution
+
+## Part 1
+
+```{r}
+library(tidyverse)
+card_numbers <- tibble(input = read_lines('data/2023_day04.txt')) |> 
+  separate_wider_regex(
+    cols = input, 
+    patterns = c(
+      'Card[ ]+',
+      card = '\\d+',
+      ': ',
+      winning_numbers = '[0-9 ]+',
+      ' \\| ',
+      chosen_numbers = '.+'
+    )
+  ) |> 
+  mutate(
+    across(
+      .cols = c(winning_numbers, chosen_numbers), 
+      .fns = \(x) str_extract_all(x, '\\d+')
+    )
+  ) |> 
+  unnest(cols = winning_numbers) 
+
+card_points <- card_numbers |> 
+  mutate(
+    number_in_chosen_ones = map2_lgl(
+      winning_numbers, 
+      chosen_numbers,
+      \(x, y) x %in% y
+    )
+  ) |> 
+  summarise(
+    wins = sum(number_in_chosen_ones),
+    points = (wins > 0) * 2^(wins - 1),
+    .by = card
+  )
+
+sum(card_points$points)
+```
+
+
+## Part 2
+
+
+```{r}
+card_amounts <- card_points |> 
+  select(card, wins) |> 
+  mutate(amount = 1)
+
+for (i in 1:(nrow(card_amounts) - 1)) {
+  current_card_wins <- card_amounts[[i, 'wins']]
+  current_card_amount <- card_amounts[[i, 'amount']]
+  if (current_card_wins > 0) {
+    card_amounts[(i + 1):(i + current_card_wins), 'amount'] <- 
+      card_amounts[(i + 1):(i + current_card_wins), 'amount'] + 
+      current_card_amount
+  }
+  
+}
+
+sum(card_amounts$amount)
+
+
+```
+
+
+# Python Solution
+
+## Part 1
+
+
+```{python}
+import pandas as pd
+
+file_name = open('data/2023_day04.txt', 'r')
+regex_pattern = r'Card[ ]+(\d+): ([0-9 ]+) \| (.+)'
+
+df = pd.DataFrame({
+   'input': file_name.readlines()
+})
+
+df[['card', 'winning_numbers', 'chosen_numbers']] = (
+  df['input'].str.extract(regex_pattern)
+)
+
+df = df.drop('input', axis = 1)
+
+split_chosen_numbers = (
+   df
+   # index those columns we don't want to touch
+   .set_index(['card', 'winning_numbers']) 
+   # Split and explode
+   .apply(lambda x: x.str.split(r'[ ]+').explode()) 
+   # reset index
+   .reset_index() 
+   .assign(
+      winning_numbers = lambda x:
+         x.apply(
+            lambda row:
+               pd.to_numeric(row.winning_numbers.split()),
+               axis = 1 # necessary here
+         ),
+      number_in_chosen_ones = lambda x: 
+         x.apply(
+            lambda row: 
+               pd.to_numeric(row.chosen_numbers) in row.winning_numbers, 
+               axis = 1 # necessary here
+         )
+   )
+)
+
+
+card_points = (
+   split_chosen_numbers
+   .groupby('card')
+   ['number_in_chosen_ones']
+   .agg(wins = 'sum')
+   .reset_index()
+   .assign(
+      card = lambda x: pd.to_numeric(x.card),
+      points = lambda x: (x.wins > 0) * (float(2) ** (x.wins - 1))
+      # float() because negative powers on integers seem to be not allowed
+   )
+   .sort_values(by = 'card')
+   .reset_index(drop = True)
+   # Reset index after sorting otherwise accessing with .loc via index later on will not correspond to correct cells that we want to access
+)
+
+sum(card_points.points)
+```
+
+## Part 2
+
+```{python}
+card_amounts = (
+   card_points[['card', 'wins']]
+   .assign(amount = 1)
+)
+
+for i in range(len(card_amounts)):
+   current_card_wins = card_amounts.loc[i, 'wins']
+   current_card_amount = card_amounts.loc[i, 'amount']
+   if ((current_card_wins > 0)):
+      card_amounts.loc[range(i + 1, i + current_card_wins + 1), 'amount'] = card_amounts.loc[range(i + 1, i + current_card_wins + 1), 'amount'] + current_card_amount
+
+sum(card_amounts.amount)
+```
