@@ -1,0 +1,97 @@
+---
+execute: 
+  message: false
+  warning: false
+---
+
+# R Solution
+
+## Part 1 & 2
+
+```{r}
+library(tidyverse)
+
+input_lines <- read_lines('data/2023_day06.txt')
+part <- 2 # Change for parts 1 and 2
+
+delim_replacement <- if (part == 1) ',' else ''
+records <- tibble(
+  time = input_lines[1] |> 
+    str_remove('Time:') |> 
+    str_trim() |> 
+    str_replace_all('[ ]+', delim_replacement),
+  distance = input_lines[2] |> 
+    str_remove('Distance:') |> 
+    str_trim()  |> 
+    str_replace_all('[ ]+', delim_replacement)
+) |> 
+  separate_longer_delim(cols = everything(), delim = ',')
+
+compute_ways_to_win <- function(max_time, record_distance) {
+  time_held <- 0:max_time
+  driving_time <- max_time - time_held
+  sum(time_held * driving_time > record_distance)
+}
+
+records |> 
+  mutate(
+    across(everything(), as.numeric),
+    ways_to_win = map2_dbl(time, distance, compute_ways_to_win)
+  ) |> 
+  pull(ways_to_win) |> 
+  prod()
+```
+
+
+# Python Solution
+
+## Part 1 & 2
+
+```{python}
+import pandas as pd
+import numpy as np
+import re
+
+with open('data/2023_day06.txt', 'r') as file:
+    input_lines = [line.rstrip() for line in file]
+
+part = 2 # Change for parts 1 and 2
+delim_replacement = ',' if (part == 1) else ''
+
+def prepare_line(input_line, description):
+    removed_description = re.sub(fr'{description}:[ ]+', '', input_line)
+    return re.sub(r'[ ]+', delim_replacement, removed_description)
+
+
+records = (
+    pd.DataFrame({
+        'time': prepare_line(input_lines[0], 'Time'),
+        'distance': prepare_line(input_lines[1], 'Distance')
+    }, index = [0])
+    .apply(lambda x: x.str.split(',').explode())
+    .reset_index(drop = True)
+    .apply(pd.to_numeric)
+    
+)
+
+def compute_ways_to_win(max_time, record_distance):
+    time_held = np.array(range(0, max_time + 1))
+    driving_time = max_time - time_held
+    return sum(time_held * driving_time > record_distance)
+
+(
+    records
+    .assign(
+        ways_to_win = lambda x: 
+            x.apply(
+                lambda row: compute_ways_to_win(
+                    row.time, row.distance
+                ), 
+                axis = 1
+            )
+    )
+    .ways_to_win
+    .prod()
+)
+
+```
