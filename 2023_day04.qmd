@@ -107,13 +107,13 @@ split_chosen_numbers = (
          x.apply(
             lambda row:
                pd.to_numeric(row.winning_numbers.split()),
-               axis = 1 # necessary here
+            axis = 1 # necessary here
          ),
       number_in_chosen_ones = lambda x: 
          x.apply(
             lambda row: 
                pd.to_numeric(row.chosen_numbers) in row.winning_numbers, 
-               axis = 1 # necessary here
+            axis = 1 # necessary here
          )
    )
 )
