@@ -1,0 +1,178 @@
+---
+execute: 
+  message: false
+  warning: false
+---
+
+# R Solution
+
+## Part 1
+
+```{r}
+library(tidyverse)
+input_lines <- read_lines('data/2023_day05.txt')
+seeds <- input_lines[1] |> 
+  str_remove('seeds: ') |> 
+  str_split_1(' ') |> 
+  as.numeric()
+
+extracted_maps <- tibble(
+  input = input_lines[-(1:2)],
+  type = str_extract(input, '[a-z\\-]+'),
+  numbers = str_extract(input, '[0-9 ]+')
+) |> 
+  fill(type, numbers) |> 
+  filter(input != '', numbers != ' ') |> 
+  select(-input)
+
+tidy_maps <- extracted_maps |> 
+  separate_wider_delim(
+    cols = type,
+    delim = '-to-',
+    names = c('from', 'to')
+  ) |> 
+  separate_wider_delim(
+    cols = numbers,
+    delim = ' ',
+    names = c('destination', 'source', 'range_length')
+  ) |> 
+  mutate(
+    across(
+      .cols = 3:5,
+      .fns = as.numeric
+    )
+  )
+
+translation_order <- input_lines[-1] |> 
+  str_subset('[a-z]') |> 
+  str_remove_all('-to.+')
+
+translate_category <- function(source_number, category) {
+  l <- tidy_maps |> 
+    filter(
+      from == category, 
+      map2_lgl(
+        source,
+        range_length,
+        \(x, y) between(source_number, x, x + y - 1)
+      )
+    )
+  
+  if (nrow(l) == 0) {
+    return(source_number)
+  }
+  tmp <- l$source - source_number
+  l$destination - tmp
+  
+}
+
+translate_seed <- function(seed_nmbr) {
+  reduce(
+    translation_order, 
+    translate_category,
+    .init = seed_nmbr
+  )
+}
+
+map_dbl(seeds, translate_seed) |> 
+  min()
+```
+
+
+
+## Part 2
+
+Current approach uses too much RAM
+
+
+# Python Solution
+
+## Part 1
+
+
+```{python}
+import pandas as pd
+from functools import reduce
+import re
+
+with open('data/2023_day05.txt', 'r') as file:
+    lines = [line.rstrip() for line in file]
+
+seeds = pd.to_numeric(
+    re.sub('seeds: ', '', lines[0]).split(' ')
+)
+
+extracted_maps = (
+    pd.DataFrame({
+        'input': lines[2:],
+        'type': pd.Series(lines[2:]).str.extract(
+            r'([a-z\\-]+)', 
+            expand = False
+        ),
+        'numbers': pd.Series(lines[2:]).str.extract(
+            r'([\d ]+)',
+            expand = False
+        )
+    })
+    .ffill()
+    .query('input != "" and numbers != " "')
+    .drop('input', axis = 1)
+
+)
+
+extracted_maps = (
+    extracted_maps.type
+    .str.split('-to-', expand = True)
+    .rename(columns = {0: 'from', 1:'to'})
+    .join(extracted_maps)
+    .drop('type', axis = 1)
+)
+
+extracted_maps = (
+    extracted_maps.numbers
+    .str.split(' ', expand = True)
+    .rename(columns = {0: 'destination', 1:'source', 2: 'range_length'})
+    .join(extracted_maps)
+    .drop('numbers', axis = 1)
+    .apply(
+        lambda x: pd.to_numeric(x) if x.name in ['destination', 'source', 'range_length'] else x 
+    )
+)
+
+translation_order = (
+    pd.Series(lines[1:])
+    .str.extractall('([a-z]+)-to.+')
+    .values
+    .flatten()
+    .tolist()
+)
+
+def translate_category(source_number, category):
+    l = (
+        extracted_maps
+        .query('`from` == @category and @source_number >= source and @source_number <= source + range_length + 1')
+    )
+
+    if l.empty:
+        return source_number
+    if not l.empty:
+        tmp = l.iloc[0].source - source_number
+        return l.iloc[0].destination - tmp 
+    
+def translate_seed(seed_nmbr):
+    val = reduce(
+        lambda x, y: translate_category(x, y),
+        translation_order,
+        seed_nmbr
+    )
+    return val
+
+pd.Series(seeds).apply(translate_seed).min()
+```
+
+
+## Part 2
+
+
+
+Current approach uses too much RAM
